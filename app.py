@@ -18,7 +18,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("Screencast2Agent")
-        self.geometry("600x500")
+        self.geometry("600x600")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
@@ -29,7 +29,17 @@ class App(ctk.CTk):
         # State
         self.is_recording = False
         self.current_video_path = "recording.mp4"
-        self.recorder = Recorder(output_file=self.current_video_path, logger=self.log)
+        
+        # Fetch available devices for Mac
+        self.video_devices_map, self.audio_devices_map = Recorder.get_avfoundation_devices()
+        
+        # Default device indices (fallback if fetching fails: '3' for screen 0, '1' for mic)
+        self.selected_video_device = "3"
+        self.selected_audio_device = "1"
+        
+        # Initialize recorder with defaults
+        self.recorder = Recorder(output_file=self.current_video_path, logger=self.log, 
+                                 video_device=self.selected_video_device, audio_device=self.selected_audio_device)
 
         # UI Elements
         self.create_widgets()
@@ -54,6 +64,22 @@ class App(ctk.CTk):
         
         self.save_key_btn = ctk.CTkButton(self.settings_frame, text="Save Key", width=80, command=self.save_api_key)
         self.save_key_btn.grid(row=0, column=2, padx=10, pady=10)
+
+        # Video Device Dropdown
+        self.video_label = ctk.CTkLabel(self.settings_frame, text="Screen:")
+        self.video_label.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="w")
+        
+        video_options = list(self.video_devices_map.keys()) if self.video_devices_map else ["Default Screen"]
+        self.video_dropdown = ctk.CTkOptionMenu(self.settings_frame, values=video_options, command=self.change_video_device)
+        self.video_dropdown.grid(row=1, column=1, columnspan=2, padx=10, pady=(0, 10), sticky="ew")
+
+        # Audio Device Dropdown
+        self.audio_label = ctk.CTkLabel(self.settings_frame, text="Microphone:")
+        self.audio_label.grid(row=2, column=0, padx=10, pady=(0, 10), sticky="w")
+        
+        audio_options = list(self.audio_devices_map.keys()) if self.audio_devices_map else ["Default Mic"]
+        self.audio_dropdown = ctk.CTkOptionMenu(self.settings_frame, values=audio_options, command=self.change_audio_device)
+        self.audio_dropdown.grid(row=2, column=1, columnspan=2, padx=10, pady=(0, 10), sticky="ew")
 
         # Middle Frame for Actions
         self.action_frame = ctk.CTkFrame(self)
@@ -149,8 +175,22 @@ class App(ctk.CTk):
         else:
             self.log("Please enter a valid API Key.")
 
+    def change_video_device(self, choice):
+        if choice in self.video_devices_map:
+            self.selected_video_device = self.video_devices_map[choice]
+            self.log(f"Selected Screen: {choice} (Index {self.selected_video_device})")
+
+    def change_audio_device(self, choice):
+        if choice in self.audio_devices_map:
+            self.selected_audio_device = self.audio_devices_map[choice]
+            self.log(f"Selected Microphone: {choice} (Index {self.selected_audio_device})")
+
     def toggle_recording(self):
         if not self.is_recording:
+            # Recreate recorder with selected devices
+            self.recorder = Recorder(output_file=self.current_video_path, logger=self.log, 
+                                     video_device=self.selected_video_device, 
+                                     audio_device=self.selected_audio_device)
             # Start Recording
             self.recorder.start()
             self.is_recording = True
