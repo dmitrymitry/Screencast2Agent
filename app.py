@@ -77,8 +77,16 @@ class App(ctk.CTk):
         self.log_textbox.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
         self.log_textbox.insert("0.0", "Welcome to Screencast2Agent!\nReady to record your browser flow.\n")
         # To make it read-only but copyable:
-        # Prevent insertion/deletion via keyboard but allow selection and copy (Ctrl-c / Command-c)
-        self.log_textbox.bind("<Key>", lambda e: "break" if e.keysym not in ("c", "C") or not (e.state & 0x0004 or e.state & 0x0008) else None)
+        def prevent_typing(event):
+            # Allow Command-C (Mac) and Ctrl-C (Windows)
+            if event.state & 0x0004 or event.state & 0x0008: 
+                return None
+            # Allow arrow keys for navigation
+            if event.keysym in ("Up", "Down", "Left", "Right"):
+                return None
+            return "break"
+            
+        self.log_textbox.bind("<Key>", prevent_typing)
 
     def log(self, message):
         """Thread-safe logging to the text box"""
@@ -91,9 +99,13 @@ class App(ctk.CTk):
     def handle_tk_exception(self, exc, val, tb):
         """Catch all uncaught Tkinter/UI exceptions and print them in the app log."""
         import traceback
+        import sys
         err_msg = "".join(traceback.format_exception(exc, val, tb))
         self.log(f"💥 Application Error:\n{err_msg}")
-        print(f"Error caught by global handler:\n{err_msg}")
+        
+        # Write to stderr so auto_healer catches it!
+        sys.stderr.write(f"Traceback (most recent call last):\n{err_msg}\n")
+        sys.stderr.flush()
 
     def save_api_key(self):
         key = self.api_key_entry.get().strip()
@@ -157,8 +169,11 @@ class App(ctk.CTk):
             generate_agent_code(self.current_video_path, logger=self.log)
         except Exception as e:
             import traceback
+            import sys
             err_msg = traceback.format_exc()
             self.log(f"💥 Critical error during generation:\n{err_msg}")
+            sys.stderr.write(f"Traceback (most recent call last):\n{err_msg}\n")
+            sys.stderr.flush()
         finally:
             self.after(0, self._reset_ui_after_generation)
             
