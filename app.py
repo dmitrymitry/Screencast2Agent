@@ -158,7 +158,8 @@ class App(ctk.CTk):
             # Update UI
             self.record_btn.configure(text="Stop Recording", fg_color="#27AE60", hover_color="#1E8449")
             self.generate_btn.configure(state="disabled")
-            self.settings_frame.configure(state="disabled")
+            self.api_key_entry.configure(state="disabled")
+            self.save_key_btn.configure(state="disabled")
         else:
             # Stop Recording
             self.recorder.stop()
@@ -169,6 +170,9 @@ class App(ctk.CTk):
             self.record_btn.configure(text="Start Recording", fg_color="#C0392B", hover_color="#922B21")
             self.generate_btn.configure(state="normal")
             self.load_btn.configure(state="normal")
+            
+            self.api_key_entry.configure(state="normal")
+            self.save_key_btn.configure(state="normal")
             
             # Check if file exists
             if os.path.exists(self.current_video_path):
