@@ -37,12 +37,19 @@ def generate_agent_code(video_path: str, logger=None):
     
     prompt = """
     Watch this screencast carefully and listen to the audio narration.
-    The user is demonstrating a specific task in a web browser.
+    The user is demonstrating a specific task.
+    Even if it's not a browser, try your best to write a Playwright/PyAutoGUI script.
     
-    1. First, provide a step-by-step generic algorithm in Markdown format explaining exactly what actions they take (clicks, typing, conditionals).
-    2. Then, step by step, create a list of instructions as a prompt, this should outline the task to be passed to an agent. 
-    3. Then, provide a complete, working Python Playwright script that automates this exact process.
-    4. Provide the Python code inside standard markdown python block (```python ... ```).
+    You MUST output your response in EXACTLY three sections separated by these exact headers:
+    
+    === ALGORITHM ===
+    [Provide a step-by-step generic algorithm in Markdown explaining exactly what actions they take]
+    
+    === PROMPT ===
+    [Create a list of instructions as a prompt outlining the task to be passed to an agent]
+    
+    === CODE ===
+    [Provide the complete, working Python script inside a standard python markdown block]
     """
 
     try:
@@ -63,30 +70,66 @@ def generate_agent_code(video_path: str, logger=None):
         except Exception:
             pass
 
-    # Save outputs
-    logger("Saving algorithm notes to algorithm.md...")
-    with open("algorithm.md", "w") as f:
-        f.write(response.text)
-        
-    logger("Extracting generated Python code...")
-    lines = response.text.split('\n')
-    in_code_block = False
-    code_lines = []
+    # Parse outputs
+    logger("Extracting sections into separate files...")
+    text = response.text
     
-    for line in lines:
-        if line.strip() == "```python" or line.strip() == "```py":
-            in_code_block = True
-            continue
-        elif line.strip() == "```" and in_code_block:
-            in_code_block = False
-            break
-        
-        if in_code_block:
-            code_lines.append(line)
-            
-    if code_lines:
-        with open("generated_agent.py", "w") as f:
-            f.write("\n".join(code_lines))
-        logger("Agent code successfully saved to generated_agent.py.")
+    # Simple extraction using string splits
+    algorithm_text = ""
+    prompt_text = ""
+    code_text = ""
+    
+    if "=== ALGORITHM ===" in text and "=== PROMPT ===" in text:
+        parts = text.split("=== ALGORITHM ===")
+        if len(parts) > 1:
+            sub = parts[1].split("=== PROMPT ===")
+            algorithm_text = sub[0].strip()
+            if len(sub) > 1:
+                sub2 = sub[1].split("=== CODE ===")
+                prompt_text = sub2[0].strip()
+                if len(sub2) > 1:
+                    code_text = sub2[1].strip()
     else:
-        logger("Warning: Could not extract specific Playwright code block. Please check algorithm.md for the RAW output.")
+        # Fallback if AI didn't follow formatting strictly
+        algorithm_text = text
+
+    # Save Algorithm
+    with open("algorithm.md", "w") as f:
+        f.write(algorithm_text)
+        
+    # Save Prompt
+    if prompt_text:
+        with open("prompt.md", "w") as f:
+            f.write(prompt_text)
+        logger("Saved agent instructions to prompt.md.")
+
+    # Save Code
+    if code_text:
+        # Clean markdown wrappers from code if present
+        lines = code_text.split('\n')
+        clean_lines = []
+        in_code = False
+        
+        for line in lines:
+            if line.strip().startswith("```python") or line.strip().startswith("```py"):
+                in_code = True
+                continue
+            elif line.strip().startswith("```"):
+                if in_code:
+                    break
+                else:
+                    continue # Skip general markdown block starts
+            
+            # If not wrapped in markdown, just add it, or if inside python block
+            if in_code or not code_text.startswith("```"):
+                clean_lines.append(line)
+                
+        final_code = "\n".join(clean_lines).strip()
+        if final_code:
+            with open("generated_agent.py", "w") as f:
+                f.write(final_code)
+            logger("Agent code safely saved to generated_agent.py.")
+        else:
+            logger("Warning: No Python code was found in the output.")
+    else:
+        logger("Detailed parsing failed. Wrote raw output to algorithm.md.")
