@@ -1,6 +1,6 @@
-import google.generativeai as genai
 import os
 import time
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,11 +14,11 @@ def generate_agent_code(video_path: str, logger=None):
         logger("Error: GEMINI_API_KEY environment variable is missing. Please add it in Settings.")
         return
 
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     logger(f"Uploading '{video_path}'...")
     try:
-        video_file = genai.upload_file(path=video_path)
+        video_file = client.files.upload(file=video_path)
     except Exception as e:
         logger(f"Failed to upload video: {e}")
         return
@@ -26,17 +26,15 @@ def generate_agent_code(video_path: str, logger=None):
     logger("Transcoding and analyzing video on Google servers. Please wait...")
     # Wait for the file to be processed
     while video_file.state.name == "PROCESSING":
-        # logger(".", end="", flush=True) # hard to do nicely in GUI, just sleep
         time.sleep(2)
-        video_file = genai.get_file(video_file.name)
+        video_file = client.files.get(name=video_file.name)
 
     if video_file.state.name == "FAILED":
         logger("\nFailed to process video on Google servers.")
         return
 
-    logger("\nVideo is ready! Sending prompt to Gemini 3.0 Flash... This might take 10-30 seconds.")
-    model = genai.GenerativeModel('gemini-3.0-flash')
-
+    logger("\nVideo is ready! Sending prompt to Gemini 2.5 Flash... This might take 10-30 seconds.")
+    
     prompt = """
     Watch this screencast carefully and listen to the audio narration.
     The user is demonstrating a specific task in a web browser.
@@ -48,15 +46,20 @@ def generate_agent_code(video_path: str, logger=None):
     """
 
     try:
-        response = model.generate_content([video_file, prompt])
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[video_file, prompt]
+        )
         logger("Received response from Gemini.")
     except Exception as e:
-        logger(f"Error during generation: {e}")
+        import traceback
+        err_msg = traceback.format_exc()
+        logger(f"Error during generation: {err_msg}")
         return
     finally:
         # Always try to delete the file from Google servers to save quota
         try:
-            genai.delete_file(video_file.name)
+            client.files.delete(name=video_file.name)
         except Exception:
             pass
 
