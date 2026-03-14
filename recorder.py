@@ -25,7 +25,7 @@ class Recorder:
             '-y', # Overwrite output files without asking
             '-f', 'avfoundation',
             '-framerate', '30',
-            '-i', '1:0', # Try to capture default screen and default audio. Change if needed.
+            '-i', '3:1', # Screen 3 (Capture screen 0) and Audio 1 (Microphone MacBook Air)
             '-c:v', 'libx264',
             '-preset', 'ultrafast',
             '-pix_fmt', 'yuv420p',

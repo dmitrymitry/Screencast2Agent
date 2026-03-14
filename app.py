@@ -22,6 +22,10 @@ class App(ctk.CTk):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(2, weight=1)
 
+        # Global Exception Handlers
+        import traceback
+        self.report_callback_exception = self.handle_tk_exception
+
         # State
         self.is_recording = False
         self.current_video_path = "recording.mp4"
@@ -72,17 +76,24 @@ class App(ctk.CTk):
         self.log_textbox = ctk.CTkTextbox(self, font=("Courier", 12))
         self.log_textbox.grid(row=2, column=0, padx=20, pady=20, sticky="nsew")
         self.log_textbox.insert("0.0", "Welcome to Screencast2Agent!\nReady to record your browser flow.\n")
-        self.log_textbox.configure(state="disabled")
+        # To make it read-only but copyable:
+        # Prevent insertion/deletion via keyboard but allow selection and copy (Ctrl-c / Command-c)
+        self.log_textbox.bind("<Key>", lambda e: "break" if e.keysym not in ("c", "C") or not (e.state & 0x0004 or e.state & 0x0008) else None)
 
     def log(self, message):
         """Thread-safe logging to the text box"""
         self.after(0, self._log_internal, message)
         
     def _log_internal(self, message):
-        self.log_textbox.configure(state="normal")
         self.log_textbox.insert("end", message + "\n")
         self.log_textbox.see("end")
-        self.log_textbox.configure(state="disabled")
+
+    def handle_tk_exception(self, exc, val, tb):
+        """Catch all uncaught Tkinter/UI exceptions and print them in the app log."""
+        import traceback
+        err_msg = "".join(traceback.format_exception(exc, val, tb))
+        self.log(f"💥 Application Error:\n{err_msg}")
+        print(f"Error caught by global handler:\n{err_msg}")
 
     def save_api_key(self):
         key = self.api_key_entry.get().strip()
@@ -145,7 +156,9 @@ class App(ctk.CTk):
         try:
             generate_agent_code(self.current_video_path, logger=self.log)
         except Exception as e:
-            self.log(f"Critical error during generation: {e}")
+            import traceback
+            err_msg = traceback.format_exc()
+            self.log(f"💥 Critical error during generation:\n{err_msg}")
         finally:
             self.after(0, self._reset_ui_after_generation)
             
