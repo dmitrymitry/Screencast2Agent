@@ -87,6 +87,33 @@ class App(ctk.CTk):
             return "break"
             
         self.log_textbox.bind("<Key>", prevent_typing)
+        
+        # Add Right-Click Copy Menu
+        import tkinter as tk
+        self.context_menu = tk.Menu(self, tearoff=0)
+        self.context_menu.add_command(label="Copy", command=self.copy_selection)
+        
+        # Bind right-click for Mac (<Button-2>) and Windows/Linux (<Button-3>)
+        self.log_textbox.bind("<Button-2>", self.show_context_menu)
+        self.log_textbox.bind("<Button-3>", self.show_context_menu)
+
+    def show_context_menu(self, event):
+        try:
+            self.context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.context_menu.grab_release()
+
+    def copy_selection(self):
+        try:
+            # Get selected text from the inner text widget
+            selected_text = self.log_textbox.get("sel.first", "sel.last")
+            # Clear clipboard and append
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+            self.update() # Keeps the clipboard populated
+        except Exception:
+            # Nothing selected
+            pass
 
     def log(self, message):
         """Thread-safe logging to the text box"""
