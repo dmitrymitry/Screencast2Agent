@@ -71,6 +71,11 @@ class App(ctk.CTk):
         self.generate_btn = ctk.CTkButton(self.action_frame, text="Generate Agent", height=50, 
                                          command=self.start_generation, state="disabled")
         self.generate_btn.grid(row=0, column=2, padx=10, pady=15, sticky="ew")
+        
+        # Progress Bar for Generation
+        self.progress_bar = ctk.CTkProgressBar(self.action_frame, mode="indeterminate")
+        self.progress_bar.grid(row=1, column=0, columnspan=3, padx=10, pady=(0, 15), sticky="ew")
+        self.progress_bar.set(0) # Hide visually when not spinning
 
         # Bottom Frame for Logs
         self.log_textbox = ctk.CTkTextbox(self, font=("Courier", 12))
@@ -188,6 +193,9 @@ class App(ctk.CTk):
         self.record_btn.configure(state="disabled")
         self.load_btn.configure(state="disabled")
         
+        # Start Progress Bar
+        self.progress_bar.start()
+        
         # Run in thread to not freeze UI
         threading.Thread(target=self._run_generation, daemon=True).start()
         
@@ -205,6 +213,8 @@ class App(ctk.CTk):
             self.after(0, self._reset_ui_after_generation)
             
     def _reset_ui_after_generation(self):
+        self.progress_bar.stop()
+        self.progress_bar.set(0)
         self.generate_btn.configure(state="normal")
         self.record_btn.configure(state="normal")
         self.load_btn.configure(state="normal")
